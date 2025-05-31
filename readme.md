@@ -9,7 +9,9 @@
 ​			项目主页：[Github-KaaCutcut](https://github.com/Datooo626/KaaCutcut)
 
 ​	KaaCutcut 咔咔切是一款简单易用的图片裁剪工具，帮助您快速实现图片任意比例任意数量的自由裁切。
-
+### 图示
+![example_cut1x5_locked3x4.png](./examples/example_cut1x5_locked3x4.png)
+![example_cut8x9_locked3x4.png](./examples/example_cut8x9_locked3x4.png)
 ​	摸鱼无聊，写点bug吧。第一次写带界面的bug，图片切割核心代码20行、花2h加上UI，又花了2天+2天+2天+2天...修bug...关键是还没修完...一行api能解决的事，被ui折腾累了，先这样吧。
 
 ​	在小红书发布3：4的图片时，可以实现相邻图的“无缝切换”效果。对于切成2张图，可以先切成6：4，然后再选3：4，划到最左切一张再划到最右切一张来实现。对于想切成3份及以上的，就很考验操作精度了，帕金森患者表示放弃，懒癌表示PS不值当，那就用代码解决吧。
