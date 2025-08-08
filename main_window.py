@@ -22,6 +22,7 @@ from qfluentwidgets import (
 from aspect_ratio_rect import AspectRatioRectItem
 from graphics_view import ResizableGraphicsView
 from overlay_manager import OverlayManager
+from canvas_view import CanvasView
 
 class ImageCropper(FluentWindow):
     def __del__(self):
@@ -69,6 +70,9 @@ class ImageCropper(FluentWindow):
             position=NavigationItemPosition.TOP
         )
 
+        # 创建画卷页面
+        self.create_canvas_interface()
+
         # 创建更多信息界面
         self.create_more_interface()
         # 创建关于我们界面
@@ -79,6 +83,19 @@ class ImageCropper(FluentWindow):
         self.navigationInterface.setCurrentItem('图片裁切')
         self.navigationInterface.setExpandWidth(150)  #限制导航栏展开宽度
         self.setMicaEffectEnabled(True)
+
+
+    def create_canvas_interface(self):
+        self.canvas_interface = CanvasView()
+        
+        """创建关于我们界面"""
+        self.addSubInterface(
+            self.canvas_interface,
+            icon=FluentIcon.MOVIE,
+            text='画卷',
+            position=NavigationItemPosition.TOP
+        )    
+
 
     def create_aboutme_interface(self):
         """创建关于我们界面"""
@@ -91,10 +108,7 @@ class ImageCropper(FluentWindow):
         # 标题 - 使用QLabel并设置大字体
         title_label = QLabel("关于 KaaCutcut 咔咔切")
         title_label.setAlignment(Qt.AlignCenter)
-        # title_font = QFont()
-        # title_font.setPointSize(16)
-        # title_font.setBold(True)
-        # title_label.setFont(title_font)
+
         
         # 应用图标
         icon_label = QLabel()
@@ -119,10 +133,7 @@ class ImageCropper(FluentWindow):
         
         # 开发团队 - 使用小标题样式
         team_label = QLabel("摸鱼：")
-        # team_font = QFont()
-        # team_font.setPointSize(12)
-        # team_font.setBold(True)
-        # team_label.setFont(team_font)
+
         
         team_text = QLabel("Datou、Deepseek、ChatGPT \n@2025")
         team_text.setAlignment(Qt.AlignCenter)
@@ -156,17 +167,9 @@ class ImageCropper(FluentWindow):
         # 标题
         title_label = QLabel("More")
         title_label.setAlignment(Qt.AlignCenter)
-        # title_font = QFont()
-        # title_font.setPointSize(16)
-        # title_font.setBold(True)
-        # title_label.setFont(title_font)
-        
+
         # 功能特点
         features_label = QLabel("摸鱼成果")
-        # subtitle_font = QFont()
-        # subtitle_font.setPointSize(12)
-        # subtitle_font.setBold(True)
-        # features_label.setFont(subtitle_font)
         
         features_text = (
             "• 简单直观的裁剪界面\n"
