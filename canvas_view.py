@@ -1,11 +1,9 @@
-# canvas_view.py
-
 from PyQt5.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QGraphicsScene, QGraphicsView,
     QPushButton, QFileDialog, QSpinBox, QLabel, QLineEdit, QColorDialog
 )
 from PyQt5.QtGui import QImage, QPainter, QPixmap, QColor, QPen
-from PyQt5.QtCore import Qt
+from PyQt5.QtCore import Qt, QRectF,QLineF
 import os
 
 from resizable_item import ResizableRotatableImageItem
@@ -14,16 +12,17 @@ from resizable_item import ResizableRotatableImageItem
 class CanvasView(QWidget):
     def __init__(self):
         super().__init__()
-
         self.setObjectName("canvasInterface")
 
-        self.segment_lines = [] #子图分割线
-        self.frame_lines = [] #画布边框线
+        self.segment_lines = [] 
+        self.frame_lines = [] 
         self.image_items = []
         self.block_count = 3
         self.aspect_ratio = 4 / 3
         self.canvas_bg_color = QColor("#f2f2f2")
         self.canvas_bg_pixmap = None
+
+
 
         self.layout = QVBoxLayout(self)
         self.toolbar = QHBoxLayout()
@@ -54,7 +53,7 @@ class CanvasView(QWidget):
         self.bg_image_btn.clicked.connect(self.choose_background_image)
         self.toolbar.addWidget(self.bg_image_btn)
 
-        self.clear_button = QPushButton("清空画布")  # ✅ 清空按钮
+        self.clear_button = QPushButton("清空画布")
         self.clear_button.clicked.connect(self.clear_canvas)
         self.toolbar.addWidget(self.clear_button)
 
@@ -66,9 +65,57 @@ class CanvasView(QWidget):
 
         self.scene = QGraphicsScene()
         self.view = QGraphicsView(self.scene)
+        self.view.setMouseTracking(True)
+        self.view.viewport().installEventFilter(self)
         self.layout.addWidget(self.view)
 
         self.update_canvas_geometry()
+
+    def eventFilter(self, obj, event):
+        from PyQt5.QtCore import QEvent
+        if obj == self.view.viewport() and event.type() == QEvent.MouseButtonPress:
+            pos = event.pos()
+            scene_pos = self.view.mapToScene(pos)
+            items = self.scene.items(scene_pos)
+
+            clicked_item = None
+            for item in items:
+                if isinstance(item, ResizableRotatableImageItem):
+                    clicked_item = item
+                    break
+
+            if clicked_item is None:
+                print("点击空白区域，取消所有选中")
+                for image_item in self.image_items:
+                    image_item.setSelected(False)
+            else:
+                print(f"点击图片：{clicked_item}, 选中它")
+                for image_item in self.image_items:
+                    image_item.setSelected(image_item is clicked_item)
+
+            return False
+        return super().eventFilter(obj, event)
+
+
+
+
+
+    def mouseMoveEvent(self, event):
+        if self.dragging_handle and self.start_pos:
+            delta = event.scenePos() - self.start_pos
+            if self.dragging_handle in ("top", "bottom", "left", "right"):
+                # 反转符号，使缩放与鼠标移动方向一致
+                factor = 1 - (delta.y() if "top" in self.dragging_handle or "bottom" in self.dragging_handle else delta.x()) / 100
+                self.setScale(max(0.1, self.scale() * factor))
+            elif self.dragging_handle in ("top_left", "top_right", "bottom_left", "bottom_right"):
+                center = self.mapToScene(self.boundingRect().center())
+                # 调整旋转角度方向符号
+                angle = QLineF(center, event.scenePos()).angleTo(QLineF(center, self.start_pos))
+                self.setRotation(self.rotation() + angle)
+            self.start_pos = event.scenePos()
+            self.update_handles()
+        else:
+            super().mouseMoveEvent(event)
 
     def update_aspect_ratio(self):
         text = self.ratio_edit.text().replace("：", ":")
@@ -91,22 +138,18 @@ class CanvasView(QWidget):
         self.draw_canvas_frame()
 
     def draw_segment_lines(self):
-        # ✅ 删除旧分割线
         for line in self.segment_lines:
             self.scene.removeItem(line)
         self.segment_lines.clear()
 
-        pen = QPen(QColor("#999999"), 2, Qt.DashLine)  # ✅ 虚线灰色
-
-        # ✅ 添加新分割线
+        pen = QPen(QColor("#999999"), 2, Qt.DashLine)
         for i in range(1, self.block_count):
             x = i * self.scene.width() / self.block_count
-            line = self.scene.addLine(x, 0, x, self.scene.height(),pen)
+            line = self.scene.addLine(x, 0, x, self.scene.height(), pen)
             line.setZValue(1000)
             self.segment_lines.append(line)
 
     def draw_canvas_frame(self):
-        # ✅ 清除旧边框（无视 scene.items）
         for line in self.frame_lines:
             self.scene.removeItem(line)
         self.frame_lines.clear()
@@ -114,7 +157,7 @@ class CanvasView(QWidget):
         self.scene.setBackgroundBrush(self.canvas_bg_color)
 
         rect = self.scene.sceneRect()
-        pen = QPen(QColor("#999999"), 2, Qt.DashLine)  # ✅ 虚线灰色
+        pen = QPen(QColor("#999999"), 2, Qt.DashLine)
         edges = [
             (rect.topLeft(), rect.topRight()),
             (rect.topRight(), rect.bottomRight()),
@@ -125,8 +168,7 @@ class CanvasView(QWidget):
         for p1, p2 in edges:
             line = self.scene.addLine(p1.x(), p1.y(), p2.x(), p2.y(), pen)
             line.setZValue(999)
-            self.frame_lines.append(line)  # ✅ 保存边框线
-
+            self.frame_lines.append(line)
 
     def choose_background_color(self):
         color = QColorDialog.getColor(initial=self.canvas_bg_color, parent=self, title="选择画布背景色")
@@ -142,8 +184,7 @@ class CanvasView(QWidget):
             self.update_canvas_geometry()
 
     def import_images(self):
-        options = QFileDialog.Options()
-        files, _ = QFileDialog.getOpenFileNames(self, "选择图片", "", "Images (*.png *.jpg *.jpeg *.bmp)", options=options)
+        files, _ = QFileDialog.getOpenFileNames(self, "选择图片", "", "Images (*.png *.jpg *.jpeg *.bmp)")
         for path in files:
             pixmap = QPixmap(path)
             block_w = self.scene.width() / self.block_count
@@ -155,7 +196,7 @@ class CanvasView(QWidget):
             item.setPos(self.scene.width() / 2, self.scene.height() / 2)
             self.image_items.append(item)
 
-    def clear_canvas(self):  # ✅ 清空按钮逻辑
+    def clear_canvas(self):
         for item in self.image_items:
             self.scene.removeItem(item)
         self.image_items.clear()
@@ -164,25 +205,101 @@ class CanvasView(QWidget):
 
     def export_canvas(self):
         if not self.image_items:
+            print("❌ 没有图片，无法导出")
             return
+
         save_dir = QFileDialog.getExistingDirectory(self, "选择导出目录")
         if not save_dir:
             return
-        block_w = self.scene.width() / self.block_count
-        block_h = self.scene.height()
-        total_size = self.scene.sceneRect().size().toSize()
-        final_image = QImage(total_size, QImage.Format_ARGB32)
-        painter = QPainter(final_image)
-        if self.canvas_bg_pixmap:
-            painter.drawPixmap(0, 0, self.canvas_bg_pixmap.scaled(total_size, Qt.IgnoreAspectRatio, Qt.SmoothTransformation))
-        else:
-            final_image.fill(self.canvas_bg_color)
-        self.scene.render(painter)
-        painter.end()
+
+        scene_rect = self.scene.sceneRect()
+
+        pixel_densities = []
+        for item in self.image_items:
+            pixmap = item.pixmap_item.pixmap()
+            orig_pix_w = pixmap.width()
+            orig_pix_h = pixmap.height()
+
+            bounding_rect = item.pixmap_item.mapRectToScene(item.pixmap_item.boundingRect())
+            disp_w = bounding_rect.width()
+            disp_h = bounding_rect.height()
+
+            if disp_w <= 0 or disp_h <= 0:
+                continue
+
+            density_w = orig_pix_w / disp_w
+            density_h = orig_pix_h / disp_h
+            pixel_densities.append(min(density_w, density_h))
+
+        if not pixel_densities:
+            print("❌ 无法计算图片像素密度，导出取消")
+            return
+
+        scale_factor = max(pixel_densities)
+
+        max_block_side  = 10000  # 可调整更大
+        max_side = max_block_side #* self.block_count
+        scale_factor = min(scale_factor, max_side / max(scene_rect.width(), scene_rect.height()))
+
+        export_width = int(scene_rect.width() * scale_factor)
+        export_height = int(scene_rect.height() * scale_factor)
+
+        print(f"[DEBUG] Scene rect: {scene_rect}")
+        print(f"[DEBUG] calculated scale_factor (max density): {scale_factor}")
+        print(f"[DEBUG] export size: {export_width}x{export_height}")
+
+        image = QImage(export_width, export_height, QImage.Format_ARGB32)
+        image.fill(Qt.transparent)
+
+        painter = QPainter(image)
+        try:
+            painter.setRenderHints(QPainter.Antialiasing | QPainter.SmoothPixmapTransform)
+
+            # 先画背景色或背景图
+            if self.canvas_bg_pixmap:
+                painter.drawPixmap(
+                    0, 0,
+                    self.canvas_bg_pixmap.scaled(export_width, export_height,
+                                                Qt.IgnoreAspectRatio, Qt.SmoothPixmapTransform)
+                )
+            else:
+                painter.fillRect(QRectF(0, 0, export_width, export_height), self.canvas_bg_color)
+
+            # 绘制每个图片的原始像素到对应放大后的区域
+            for idx, item in enumerate(self.image_items):
+                pixmap = item.pixmap_item.pixmap()
+
+                # 获取图片在场景中的显示区域（浮点）
+                scene_rect_item = item.pixmap_item.mapRectToScene(item.pixmap_item.boundingRect())
+
+                # 计算导出图像中对应位置和大小（整数像素）
+                x = int(scene_rect_item.left() * scale_factor)
+                y = int(scene_rect_item.top() * scale_factor)
+                w = int(scene_rect_item.width() * scale_factor)
+                h = int(scene_rect_item.height() * scale_factor)
+
+                if w <= 0 or h <= 0:
+                    continue
+
+                # 将原始pixmap缩放到导出大小（保持高质量）
+                scaled_pixmap = pixmap.scaled(w, h, Qt.IgnoreAspectRatio, Qt.SmoothTransformation)
+
+                painter.drawPixmap(x, y, scaled_pixmap)
+                print(f"[DEBUG] 绘制图片 {idx} 到 ({x}, {y}, {w}, {h})")
+
+        finally:
+            painter.end()
+
+        # 分块保存
+        block_w = export_width // self.block_count
         for i in range(self.block_count):
-            x = int(i * block_w)
-            y = 0
-            w = int(block_w)
-            h = int(block_h)
-            block_img = final_image.copy(x, y, w, h)
-            block_img.save(os.path.join(save_dir, f"segment_{i+1}.png"))
+            x = i * block_w
+            block_img = image.copy(x, 0, block_w, export_height)
+            filename = os.path.join(save_dir, f"segment_{i+1}.png")
+            block_img.save(filename, "PNG")
+            print(f"[DEBUG] 保存分块: {filename}")
+
+        print(f"[✅ 导出完成] 共导出 {self.block_count} 张图")
+
+
+
